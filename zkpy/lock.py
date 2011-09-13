@@ -10,7 +10,7 @@ import logging
 import operator
 import zookeeper
 from zkpy.exceptions import NoNodeException
-
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class Lock(object):
 
     '''
 
-    def __init__(self, connection, path, watcher = None):
+    def __init__(self, connection, path, watcher = None, name = None):
         '''Lock construction.
         :param connection:  The zkpy connection
         :param path: Parent node under which the lock nodes are created.
@@ -40,6 +40,7 @@ class Lock(object):
         self._id = None
         self._last_owner = None
         self._watched_neighbor = None
+        self.name = name if name is not None else str(uuid.uuid4())
 
         try:
             _stat, self._acls = self._connection.get_acl(path)
@@ -65,14 +66,12 @@ class Lock(object):
 
     def _connection_watcher(self, type, state, path):
         '''Receives global connection events.'''
-
         # check new connection
         if state == KeeperState.Expired:
-
             if self._id:
-                logger.warning('Connection expired! Lock \'%s\' implicitely released.' % self._id)
+                logger.warning(self.name+': Connection expired! Lock \'%s\' implicitely released.' % self._id)
             else:
-                logger.warning('Connection expired on NONE lock! (path=%s, last_owner=%s)' % (self._path, self._last_owner))
+                logger.warning(self.name+': Connection expired on NONE lock! (path=%s, last_owner=%s)' % (self._path, self._last_owner))
 
             self._id = None
             self._connection.remove_global_watcher(self._connection_watcher)
@@ -80,14 +79,14 @@ class Lock(object):
                 self.watcher.lock_released()
         elif state == KeeperState.Connecting:
             if self._id:
-                logger.warning('Connection expired! Lock \'%s\' implicitely released.' % self._id)
+                logger.warning(self.name+': Connection expired! Lock \'%s\' implicitely released.' % self._id)
             else:
-                logger.warning('Connection expired on NONE lock! (path=%s, last_owner=%s)' % (self._path, self._last_owner))
+                logger.warning(self.name+': Connection expired on NONE lock! (path=%s, last_owner=%s)' % (self._path, self._last_owner))
         elif state == KeeperState.Connected:
-            logger.debug('Watcher: Lock \'%s\' connected. locking...' %  self._id)
+            logger.debug(self.name+': Watcher: Lock \'%s\' connected. locking...' %  self._id)
             self._lock()
         else:
-            logger.debug('Watcher: Lock \'%s\' catched connection event \'%s\'' %  (self._id, KeeperState[state]))
+            logger.debug(self.name+': Watcher: Lock \'%s\' caught connection event \'%s\'' %  (self._id, KeeperState[state]))
 
 
 
@@ -101,7 +100,7 @@ class Lock(object):
         # search it, in the children list
         for child in children:
             if child.startswith(prefix):
-                logger.debug('Found already existing node %s' % child)
+                logger.debug(self.name+': Found already existing node %s' % child)
                 return child
 
         # if not found: create the node
@@ -111,17 +110,31 @@ class Lock(object):
                                 NodeCreationMode.EphemeralSequential)
         # strip the path
         node_id = node[len(self._path) + 1:]
-        logger.debug('Created node %s' % node)
+        logger.debug(self.name+': Created node %s' % node)
         return node_id
 
     def __smaller_neighbor_watcher(self, handle, type, state, path):
-        if self._id and path[len(self._path)+1:] == self._watched_neighbor:
-            logger.debug('Watcher fired on path: %s state: %s type: %s. Tryin to acquire the lock' % (path, EventType[type], KeeperState[state]))
-            self._lock()
-
+        if self._id:
+            if path[len(self._path)+1:] == self._watched_neighbor:
+                logger.debug(self.name+': Watcher fired on path: %s state: %s type: %s. Trying to acquire the lock' % (
+                        path,
+                        EventType[type],
+                        KeeperState[state]))
+                self._lock()
+            else:
+                logger.warning(self.name+': Watcher fired on path: %s state: %s type: %s. Did not match watched path %s' % (
+                        path,
+                        EventType[type],
+                        KeeperState[state],
+                        self._watched_neighbor))
+                
+        else:
+            logger.warning(self.name+': Watcher fired on path: %s state: %s type: %s. But _id is already None (released already?).' % (
+                    path,
+                    EventType[type],
+                    KeeperState[state]))
 
     def acquire(self):
-
         # check, if we need to lock ourself?
         if self.is_owner():
             return True
@@ -131,8 +144,9 @@ class Lock(object):
         
         try:
             return self._lock()
-        except:
+        except Exception as e:
             # something went wrong, thus we remove the observer
+            logger.exception(self.name+' '.join((': ********************** Exception:',str(type(e)),str(e))))
             self._connection.remove_global_watcher(self._connection_watcher)
 
 
@@ -160,7 +174,7 @@ class Lock(object):
                           for child in self._connection.get_children(self._path)]
             if not children:
                 # this case should not happen, as we just added ourself
-                logger.warn('No children in %s but there should be!' % self._path)
+                logger.warn(self.name+': No children in %s but there should be!' % self._path)
                 self._id = None
                 continue
 
@@ -178,7 +192,7 @@ class Lock(object):
                     break
                 smaller_neighbor = name
             if me_not_found:
-                logger.warn('Could not find own lock node \'%s\'. Recreating...' % self._id)
+                logger.warn(self.name+': Could not find own lock node \'%s\'. Recreating...' % self._id)
                 self._id = None
                 continue
 
@@ -186,7 +200,7 @@ class Lock(object):
             if smaller_neighbor:
                 # only set a watch, if the smaller id has changed
                 if smaller_neighbor != self._watched_neighbor:
-                    logger.debug('watching less than me node: %s' % smaller_neighbor)
+                    logger.debug(self.name+': watching less than me node: %s' % smaller_neighbor)
                     stat = self._connection.exists(
                                         '%s/%s' % (self._path, smaller_neighbor),
                                          self.__smaller_neighbor_watcher)
@@ -194,7 +208,7 @@ class Lock(object):
                     # we could not get the stat: smaller neighbor does not exist
                     # anymore
                     if not stat:
-                        logger.debug('can not watch lesser node %s. Retrying...' % smaller_neighbor)
+                        logger.debug(self.name+': can not watch lesser node %s. Retrying...' % smaller_neighbor)
                         continue
 
                     self._watched_neighbor = smaller_neighbor
@@ -208,7 +222,7 @@ class Lock(object):
                     if self.watcher and former_lock_owner != self._id:
                         self.watcher.lock_acquired()
                     return True
-                logger.debug('we should be owner, but we arent!')
+                logger.debug(self.name+': we should be owner, but we arent!')
                 continue
 
         raise RuntimeError('Could neither acquire the lock, nor set a watch')
@@ -224,10 +238,10 @@ class Lock(object):
         '''Releases the lock'''
 
         if not self._id:
-            logger.warn('Can not release a not acquired lock')
+            logger.warn(self.name+': Can not release a not acquired lock')
             return
         if not self._connection.is_connected():
-            logger.info('No connection. Lock is already released')
+            logger.info(self.name+': No connection. Lock is already released')
             return
 
         # remove watcher
@@ -244,7 +258,7 @@ class Lock(object):
             zk_retry_operation(self._connection.delete)('%s/%s' % (self._path, node_id))
         # we do not bother, if there is no such node
         except zookeeper.NoNodeException:
-            logger.warn('No such node to delete')
+            logger.warn(self.name+': No such node to delete')
             return
         finally:
             if self.watcher:
