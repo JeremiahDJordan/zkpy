@@ -144,10 +144,10 @@ class Lock(object):
         
         try:
             return self._lock()
-        except Exception as e:
+        except:
             # something went wrong, thus we remove the observer
-            logger.exception(self.name+' '.join((': ********************** Exception:',str(type(e)),str(e))))
             self._connection.remove_global_watcher(self._connection_watcher)
+            raise
 
 
     @zk_retry_operation
