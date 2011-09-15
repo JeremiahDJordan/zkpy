@@ -3,4 +3,8 @@
 .settings
 *.py[co]
 /build
+/cover
+coverage.xml
+nosetests.xml
+.coverage
 
