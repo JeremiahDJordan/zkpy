@@ -41,13 +41,13 @@ def main():
             # try to enumerate the children
             try:
                 print 'conn2: /foo\'s children', conn2.get_children('/foo')
-            except:
-                print 'conn2: could not get children'
+            except Exception as e:
+                print ' - '.join(('conn2: could not get children',str(type(e)), str(e)))
             # try to delete one of the children
             try:
                 print 'conn2: deleting /foo/nested ....', 0 == conn2.delete('/foo/nested')
-            except:
-                print 'conn2: could not delete /foo/nested'
+            except Exception as e:
+                print ' - '.join(('conn2: could not delete /foo/nested',str(type(e)), str(e)))
 
         print 'conn1: deleted /foo/nested', 0 == conn.delete('/foo/nested')
         print 'conn1: deleted /foo', 0 == conn.delete('/foo')

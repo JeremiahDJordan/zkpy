@@ -11,18 +11,19 @@ logging.basicConfig()
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-ZOOKEEPER_HOST='localhost:2181'
+ZOOKEEPER_HOST = 'dfbetasynchap81:2181'
+
 
 class TestLock(unittest.TestCase):
     def testLockSynchronous(self):
         with zkpy.connection.zkopen(ZOOKEEPER_HOST, 5) as conn1:
             try:
-                lockNode = '/locktest_'+inspect.stack()[0][3]
+                lockNode = '/locktest_' + inspect.stack()[0][3]
                 conn1.ensure_path_exists(lockNode, '', [zkpy.acl.Acls.Unsafe])
                 lock1 = zkpy.lock.Lock(conn1, lockNode)
                 self.assertEqual(lock1.acquire(), True)
                 self.assertNotEqual(lock1.id, '')
-                self.assertEqual(lock1.path,lockNode)
+                self.assertEqual(lock1.path, lockNode)
                 self.assertEqual(lock1.release(), None)
             finally:
                 try:
@@ -33,7 +34,7 @@ class TestLock(unittest.TestCase):
     def testLockNoAcquireNodeException(self):
         with zkpy.connection.zkopen(ZOOKEEPER_HOST, 5) as conn1:
             try:
-                lockNode = '/locktest_'+inspect.stack()[0][3]
+                lockNode = '/locktest_' + inspect.stack()[0][3]
                 conn1.ensure_path_exists(lockNode, '', [zkpy.acl.Acls.Unsafe])
                 lock1 = zkpy.lock.Lock(conn1, lockNode)
                 conn1.delete(lockNode)
@@ -47,13 +48,13 @@ class TestLock(unittest.TestCase):
     def testLockSynchronousTwice(self):
         with zkpy.connection.zkopen(ZOOKEEPER_HOST, 5) as conn1:
             try:
-                lockNode = '/locktest_'+inspect.stack()[0][3]
+                lockNode = '/locktest_' + inspect.stack()[0][3]
                 conn1.ensure_path_exists(lockNode, '', [zkpy.acl.Acls.Unsafe])
                 lock1 = zkpy.lock.Lock(conn1, lockNode)
                 self.assertEqual(lock1.acquire(), True)
                 self.assertEqual(lock1.acquire(), True)
                 self.assertNotEqual(lock1.id, '')
-                self.assertEqual(lock1.path,lockNode)
+                self.assertEqual(lock1.path, lockNode)
                 self.assertEqual(lock1.release(), None)
                 self.assertEqual(lock1.release(), None)
             finally:
@@ -64,7 +65,7 @@ class TestLock(unittest.TestCase):
 
     def testLockSynchronousConnectionClosed(self):
         with zkpy.connection.zkopen(ZOOKEEPER_HOST, 5) as conn1:
-            lockNode = '/locktest_'+inspect.stack()[0][3]
+            lockNode = '/locktest_' + inspect.stack()[0][3]
             conn1.ensure_path_exists(lockNode, '', [zkpy.acl.Acls.Unsafe])
             lock1 = zkpy.lock.Lock(conn1, lockNode)
             self.assertEqual(lock1.acquire(), True)
@@ -74,7 +75,7 @@ class TestLock(unittest.TestCase):
     def testLockNoNodeException(self):
         with zkpy.connection.zkopen(ZOOKEEPER_HOST, 5) as conn1:
             try:
-                lockNode = '/locktest_'+inspect.stack()[0][3]
+                lockNode = '/locktest_' + inspect.stack()[0][3]
                 try:
                     conn1.delete(lockNode)
                 except:
@@ -86,13 +87,14 @@ class TestLock(unittest.TestCase):
     def testLockRunTimeException(self):
         with zkpy.connection.zkopen(ZOOKEEPER_HOST, 5) as conn1:
             try:
-                lockNode = '/locktest_'+inspect.stack()[0][3]
+                lockNode = '/locktest_' + inspect.stack()[0][3]
                 conn1.ensure_path_exists(lockNode, '', [zkpy.acl.Acls.Unsafe])
+
                 def FakeCreate(self, path, *args, **_kwargs):
-                    return path+"/a6d255ad-6ab4-49f7-9f92-d5b4ad703af7"
+                    return path + "/a6d255ad-6ab4-49f7-9f92-d5b4ad703af7"
                 conn1.create = FakeCreate
                 lock1 = zkpy.lock.Lock(conn1, lockNode)
-                self.assertRaises(RuntimeError,lock1.acquire)
+                self.assertRaises(RuntimeError, lock1.acquire)
             finally:
                 try:
                     conn1.delete(lockNode)
@@ -102,15 +104,15 @@ class TestLock(unittest.TestCase):
     def testLockSynchronousCreate2(self):
         with zkpy.connection.zkopen(ZOOKEEPER_HOST, 5) as conn1:
             try:
-                lockNode = '/locktest_'+inspect.stack()[0][3]
+                lockNode = '/locktest_' + inspect.stack()[0][3]
                 conn1.ensure_path_exists(lockNode, '', [zkpy.acl.Acls.Unsafe])
                 lock1 = zkpy.lock.Lock(conn1, lockNode)
                 lock2 = zkpy.lock.Lock(conn1, lockNode)
                 self.assertNotEqual(lock1.id, '')
-                self.assertEqual(lock1.path,lockNode)
+                self.assertEqual(lock1.path, lockNode)
                 self.assertEqual(lock2.acquire(), True)
                 self.assertNotEqual(lock1.id, lock2.id)
-                self.assertEqual(lock1.path,lock2.path)
+                self.assertEqual(lock1.path, lock2.path)
                 self.assertEqual(lock1.release(), None)
                 self.assertEqual(lock2.release(), None)
             finally:
@@ -125,13 +127,15 @@ class TestLock(unittest.TestCase):
                 def __init__(self):
                     self.acquired = None
                     self.released = None
+
                 def lock_acquired(self):
                     self.acquired = True
+
                 def lock_released(self):
                     self.released = True
             observer = LockObserver()
             try:
-                lockNode = '/locktest_'+inspect.stack()[0][3]
+                lockNode = '/locktest_' + inspect.stack()[0][3]
                 conn1.ensure_path_exists(lockNode, '', [zkpy.acl.Acls.Unsafe])
                 lock1 = zkpy.lock.Lock(conn1, lockNode, observer)
                 self.assertEqual(lock1.acquire(), True)
@@ -150,15 +154,17 @@ class TestLock(unittest.TestCase):
                 def __init__(self):
                     self.acquired = None
                     self.released = None
+
                 def lock_acquired(self):
                     self.acquired = True
+
                 def lock_released(self):
                     self.released = True
             observer1 = LockObserver()
             observer2 = LockObserver()
             #observer3 = LockObserver()
             try:
-                lockNode = '/locktest_'+inspect.stack()[0][3]
+                lockNode = '/locktest_' + inspect.stack()[0][3]
                 conn1.ensure_path_exists(lockNode, '', [zkpy.acl.Acls.Unsafe])
                 lock1 = zkpy.lock.Lock(conn1, lockNode, observer1)
                 self.assertEqual(lock1.acquire(), True)
@@ -185,14 +191,16 @@ class TestLock(unittest.TestCase):
                 def __init__(self):
                     self.acquired = None
                     self.released = None
+
                 def lock_acquired(self):
                     self.acquired = True
+
                 def lock_released(self):
                     self.released = True
             observer1 = LockObserver()
             observer2 = LockObserver()
             try:
-                lockNode = '/locktest_'+inspect.stack()[0][3]
+                lockNode = '/locktest_' + inspect.stack()[0][3]
                 conn1.ensure_path_exists(lockNode, '', [zkpy.acl.Acls.Unsafe])
                 lock1 = zkpy.lock.Lock(conn1, lockNode, observer1)
                 self.assertEqual(lock1.acquire(), True)
@@ -217,4 +225,3 @@ class TestLock(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
