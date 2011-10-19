@@ -17,7 +17,7 @@ import zookeeper
 zookeeper.set_debug_level(zookeeper.LOG_LEVEL_WARN)
 # set up our logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARN)
+#logger.setLevel(logging.WARN)
 
 class Connection(object):
     '''Represents a zookeeper connection'''
@@ -66,7 +66,7 @@ class Connection(object):
         # connect
         self.connect(self._timeout)
 
-        # set up watch queu
+        # set up watch queue
         self._watchers = set()
 
 
@@ -247,7 +247,7 @@ class Connection(object):
             logger.warn('Connection is already closed')
             return True
 
-        for _ in range(3):
+        for _i in range(3):
             try:
                 return zookeeper.close(self._handle) == zookeeper.OK
             except: #zookeeper.ConnectionLossException:
