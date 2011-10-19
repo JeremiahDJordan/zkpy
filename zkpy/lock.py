@@ -228,6 +228,12 @@ class Lock(object):
                 and self._last_owner
                 and self._id == self._last_owner)
 
+    def waiting_to_be_owner(self):
+        '''Returns true, if this instance holds the lock or is waiting to hold the lock'''
+        return (self._connection.is_somehow_connected()
+                and self._id
+                and self._last_owner)
+
     def release(self):
         '''Releases the lock'''
         if not self._id:
